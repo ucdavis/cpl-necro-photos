@@ -1,6 +1,5 @@
 import { NavLink, Link, useSearchParams, Form } from "react-router-dom";
-import logo from "../assets/react.svg";
-import { useRef } from "react";
+import logo from "../assets/CPL_left.png";
 
 export function Header() {
   const [searchParams] = useSearchParams();
@@ -11,14 +10,12 @@ export function Header() {
   };
 
   return (
-    <header className="text-center text-slate-50 bg-slate-900 h-40 p-5">
-      {/* https://reactrouter.com/en/main/components/form */}
-
+    <header className="cpl-header">
       <Link to="">
         <img src={logo} alt="Logo" className="inline-block h-20" />
       </Link>
 
-      <Form className="relative text-right" action="/products">
+      <Form className="search-form" action="/products">
         {/* onSubmit={handleSearchSubmit} */}
 
         <input
@@ -27,7 +24,7 @@ export function Header() {
           onChange={searchOnChange}
           placeholder="Search"
           defaultValue={searchParams.get("search") ?? ""}
-          className="absolute right-0 top-0 rounded py-2 px-3 text-gray-700"
+          className="search-input"
         />
       </Form>
 
@@ -50,7 +47,7 @@ export function Header() {
             }`
           }
         >
-          Products
+          Upload
         </NavLink>
       </nav>
     </header>

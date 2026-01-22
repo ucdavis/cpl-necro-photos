@@ -25,3 +25,9 @@ dist-ssr
 
 # Vite cache
 .vite
+
+# File uploads
+uploads
+
+# Environment variables
+.env

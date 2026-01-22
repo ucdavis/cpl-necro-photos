@@ -1,18 +1,19 @@
-import { apiClient } from "./ApiClient";
+import { apiClient } from "./apiClient";
+import type { PhotosResponse, Photo, UploadResponse } from "../types";
 
-export const getPhotos = async () => {
-  const result = await apiClient.get("/photos");
-  return result;
+export const getPhotos = async (): Promise<PhotosResponse> => {
+  const res = await apiClient.get<PhotosResponse>("/photos");
+  return res;
 };
 
-export const getPhotoById = async (id: string) => {
-  const result = await apiClient.get(`/photos/${id}`);
-  return result;
+export const getPhotoById = async (id: string): Promise<Photo> => {
+  const res = await apiClient.get<Photo>(`/photos/${id}`);
+  return res.data;
 };
 
-export const uploadPhoto = async (photoData: FormData) => {
-  const result = await apiClient.post("/photos", photoData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  return result;
+export const uploadPhoto = async (
+  photoData: FormData,
+): Promise<UploadResponse> => {
+  const res = await apiClient.post<UploadResponse>("/photos/upload", photoData);
+  return res.data;
 };
