@@ -4,7 +4,7 @@ interface PhotoThumbnailProps {
 }
 
 export function PhotoThumbnail({ filename, year }: PhotoThumbnailProps) {
-  const photoUrl = `${import.meta.env.VITE_PHOTO_URL}/${year}/${filename}`;
+  const photoUrl = `${import.meta.env.VITE_PHOTO_URL}/${year}/thumbnails/${filename}`;
 
   return (
     <div className="photo-thumbnail">

@@ -1,9 +1,10 @@
 import { apiClient } from "./apiClient";
 import type { PhotosResponse, Photo, UploadResponse } from "../types";
 
-export const getPhotos = async (): Promise<PhotosResponse> => {
-  const res = await apiClient.get<PhotosResponse>("/photos");
-  return res;
+export const getPhotos = async (queryParams: string = ""): Promise<PhotosResponse> => {
+  const url = queryParams ? `/photos?${queryParams}` : "/photos";
+  const res = await apiClient.get<PhotosResponse>(url);
+  return res.data;
 };
 
 export const getPhotoById = async (id: string): Promise<Photo> => {

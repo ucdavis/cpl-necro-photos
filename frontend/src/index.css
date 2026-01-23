@@ -89,6 +89,9 @@ button:focus-visible {
 
 .search-form {
   flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .search-input {
@@ -107,6 +110,57 @@ button:focus-visible {
 
 .search-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #33572b;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.year-select {
+  background-color: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 16px;
+  min-width: 120px;
+  cursor: pointer;
+}
+
+.year-select:focus {
+  outline: none;
+  border-color: #33572b;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.search-button {
+  background-color: #222934;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.search-button:hover {
+  background-color: #091e4a;
+}
+
+.search-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  padding: 20px;
+}
+.photo-thumbnail {
+  border: 3px solid transparent;
+  transition: border-color 0.2s ease;
+}
+.photo-thumbnail:hover {
+  border-color: rgb(171, 225, 34);
 }
