@@ -32,7 +32,7 @@ export function Header() {
   return (
     <header className="cpl-header">
       <Link to="">
-        <img src={logo} alt="Logo" className="inline-block h-20" />
+        <img src={logo} alt="Logo" className="h-20" />
       </Link>
 
       <Form className="search-form" onSubmit={handleSearchSubmit}>
@@ -73,7 +73,7 @@ export function Header() {
         <NavLink
           to="/"
           className={({ isActive }) =>
-            `text-white no-underline p-1 pb-0.5 border-solid border-b-2 ${
+            `text-grey-400 no-underline p-1 pb-0.5 border-solid border-b-2 ${
               isActive ? "border-green-500" : "border-transparent"
             }`
           }
@@ -83,7 +83,7 @@ export function Header() {
         <NavLink
           to="/upload"
           className={({ isActive }) =>
-            `text-white no-underline p-1 pb-0.5 border-solid border-b-2 ${
+            `text-grey-400 no-underline p-1 pb-0.5 border-solid border-b-2 ${
               isActive ? "border-green-500" : "border-transparent"
             }`
           }

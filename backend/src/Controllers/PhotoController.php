@@ -22,13 +22,13 @@ class PhotoController extends Controller
     {
         try {
             $page = (int) $this->getQuery('page', 1);
-            $perPage = (int) $this->getQuery('per_page', 20);
+            $perPage = (int) $this->getQuery('per_page', 50);
             $year = $this->getQuery('year');
             $search = $this->getQuery('search');
             
             // Validate pagination parameters
             if ($page < 1) $page = 1;
-            if ($perPage < 1 || $perPage > 100) $perPage = 20;
+            if ($perPage < 1 || $perPage > 500) $perPage = 500;
             
             // Convert year to 2-digit format if provided
             if ($year) {
