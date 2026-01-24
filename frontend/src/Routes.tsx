@@ -5,6 +5,7 @@ import { NotFound } from "./pages/NotFound";
 
 const Gallery = lazy(() => import("./pages/Gallery"));
 const UploadPhoto = lazy(() => import("./pages/UploadPhoto"));
+const PhotoIndividual = lazy(() => import("./pages/PhotoIndividual"));
 
 const router = createBrowserRouter([
   {
@@ -17,6 +18,14 @@ const router = createBrowserRouter([
         element: (
           <Suspense fallback={<div>Loading...</div>}>
             <Gallery />
+          </Suspense>
+        ),
+      },
+      {
+        path: "photo/:id",
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <PhotoIndividual />
           </Suspense>
         ),
       },

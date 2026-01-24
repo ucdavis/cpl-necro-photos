@@ -132,7 +132,7 @@ button:focus-visible {
 }
 
 .search-button {
-  background-color: #222934;
+  background-color: #022851; /* UCD Blue */
   color: white;
   border: none;
   border-radius: 6px;
@@ -157,10 +157,174 @@ button:focus-visible {
   gap: 16px;
   padding: 20px;
 }
+
 .photo-thumbnail {
   border: 3px solid transparent;
   transition: border-color 0.2s ease;
 }
+
 .photo-thumbnail:hover {
   border-color: rgb(171, 225, 34);
+}
+
+.thumbnail-caption {
+  font-size: 0.8rem;
+  background-color: #213547;
+  padding: 4px 8px;
+  color: white;
+}
+
+.caption-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.caption-filename {
+  font-weight: 500;
+  color: #e5e7eb;
+}
+
+.caption-login {
+  font-style: italic;
+  color: #9ca3af;
+}
+
+.caption-date {
+  font-size: 0.75rem;
+  color: #d1d5db;
+}
+
+.photo-individual-container {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.photo-individual-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 30px;
+  align-items: start;
+}
+
+.photo-individual-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.photo-individual-image {
+  max-width: 100%;
+  max-height: 85vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.photo-info-panel {
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.back-button {
+  background: none;
+  border: 2px solid #33572b;
+  color: #33572b;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 16px;
+}
+
+.back-button:hover {
+  border-color: #00524c; /* UCD Delta */
+  background-color: #00524c; /* UCD Delta */
+  color: white;
+}
+
+.back-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(51, 87, 43, 0.3);
+}
+
+.photo-title {
+  margin: 0 0 20px 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a202c;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 12px;
+}
+
+.photo-details p {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  color: #4a5568;
+  line-height: 1.5;
+}
+
+.photo-details p:last-child {
+  margin-bottom: 0;
+}
+
+.photo-uploader,
+.photo-date,
+.photo-size {
+  margin-bottom: 8px;
+}
+
+.photo-uploader strong,
+.photo-date strong,
+.photo-size strong {
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.original-image-link {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 8px 16px;
+  background-color: #00524c; /* UCD Delta */
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.original-image-link:hover {
+  background-color: #266041; /* UCD Redwood */
+  color: white;
+  text-decoration: none;
+}
+
+.original-image-link:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(51, 87, 43, 0.3);
+}
+
+/* Responsive design - stack on mobile */
+@media (max-width: 768px) {
+  .photo-individual-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .photo-individual-wrapper {
+    min-height: 300px;
+  }
+
+  .photo-info-panel {
+    order: -1; /* Show info above image on mobile */
+  }
 }

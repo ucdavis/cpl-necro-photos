@@ -15,6 +15,21 @@ export const formatDate = (dateString: string): string => {
 };
 
 /**
+ * Format a date string to include both date and time
+ */
+export const formatDateTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+/**
  * Get relative time (e.g., "2 days ago")
  */
 export const getRelativeTime = (dateString: string): string => {
