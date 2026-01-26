@@ -4,14 +4,17 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Repositories\PhotoRepository;
+use App\Services\ImageService;
 
 class PhotoController extends Controller
 {
     private PhotoRepository $photoRepository;
+    private ImageService $imageService;
 
     public function __construct()
     {
         $this->photoRepository = new PhotoRepository();
+        $this->imageService = new ImageService();
     }
 
     /**
@@ -95,12 +98,32 @@ class PhotoController extends Controller
             
             // Validate file type (images only)
             $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mimeType = finfo_file($finfo, $file['tmp_name']);
-            finfo_close($finfo);
+            $mimeType = null;
             
-            if (!in_array($mimeType, $allowedTypes)) {
-                return $this->error('Invalid file type. Only images are allowed', 400);
+            // Try Fileinfo extension first (most reliable)
+            if (function_exists('finfo_open')) {
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mimeType = finfo_file($finfo, $file['tmp_name']);
+                finfo_close($finfo);
+            }
+            // Fallback to mime_content_type() if available
+            elseif (function_exists('mime_content_type')) {
+                $mimeType = mime_content_type($file['tmp_name']);
+            }
+            // Final fallback: check file extension
+            else {
+                $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                $extensionMap = [
+                    'jpg' => 'image/jpeg',
+                    'jpeg' => 'image/jpeg',
+                    'png' => 'image/png',
+                    'gif' => 'image/gif'
+                ];
+                $mimeType = $extensionMap[$extension] ?? null;
+            }
+            
+            if (!$mimeType || !in_array($mimeType, $allowedTypes)) {
+                return $this->error('Invalid file type. Only images (JPG, PNG, GIF) are allowed', 400);
             }
             
             // Get additional data from POST
@@ -119,27 +142,39 @@ class PhotoController extends Controller
                 return $this->error($error, 400);
             }
             
-            // Generate filename
+            // Determine file extension; filename will be generated once the upload directory exists
             $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-            $filename = sprintf(
-                '%s-%s%s.%s',
-                $cplNum,
-                substr($year, -2),
-                $suffix ? $suffix : '',
-                $extension
-            );
             
             // Create upload directory if it doesn't exist
             $uploadDir = $_ENV['UPLOAD_DIR'] ?? '../uploads';
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0755, true);
             }
+            // Create year subdirectory
+            $yearDir = $uploadDir . '/' . substr($year, -2);
+            if (!is_dir($yearDir)) {
+                mkdir($yearDir, 0755, true);
+            }
+            // Create thumbnails directory
+            if(!is_dir($yearDir . '/thumbnails')) {
+                mkdir($yearDir . '/thumbnails', 0755, true);
+            }
             
-            $uploadPath = $uploadDir . '/' . $filename;
+            // Generate unique filename (adds -a, -b, ... if needed)
+            $filename = $this->generateUniqueFilename($yearDir, $cplNum, $year, $suffix ?? '', $extension);
+            
+            $uploadPath = $yearDir . '/' . $filename;
             
             // Move uploaded file
             if (!move_uploaded_file($file['tmp_name'], $uploadPath)) {
                 return $this->error('Failed to save uploaded file', 500);
+            }
+            
+            // Generate thumbnail (350x350)
+            $thumbnailGenerated = $this->imageService->generateThumbnail($uploadPath, $yearDir . '/thumbnails/' . $filename, 350, 350);
+            if (!$thumbnailGenerated) {
+                // Log warning but don't fail the upload
+                error_log("Warning: Failed to generate thumbnail for {$filename}");
             }
             
             // Save to database
@@ -166,6 +201,7 @@ class PhotoController extends Controller
      * DELETE /photos/{id}
      * Delete a photo
      */
+    // Todo: Implement authentication/authorization
     public function delete(string $id): string
     {
         try {
@@ -177,14 +213,17 @@ class PhotoController extends Controller
             
             // Delete file from filesystem
             $uploadDir = $_ENV['UPLOAD_DIR'] ?? '../uploads';
-            $filePath = $uploadDir . '/' . $photo['filename'];
+            $filePath = $uploadDir . '/' . substr($photo['year'], -2) . '/' . $photo['filename'];
             
             if (file_exists($filePath)) {
                 unlink($filePath);
             }
+            if(file_exists($uploadDir . '/' . substr($photo['year'], -2) . '/thumbnails/' . $photo['filename'])) {
+                unlink($uploadDir . '/' . substr($photo['year'], -2) . '/thumbnails/' . $photo['filename']);
+            }
             
             // Delete from database
-            $this->photoRepository->delete((int) $id);
+            $this->photoRepository->delete((int)$id);
             
             return $this->success(null, 'Photo deleted successfully');
             
@@ -192,10 +231,59 @@ class PhotoController extends Controller
             return $this->error('Failed to delete photo: ' . $e->getMessage(), 500);
         }
     }
+    /**
+     * Generate a unique filename by appending alphabetic suffixes if needed.
+     */
+    private function generateUniqueFilename(string $dir, string $cplNum, string $year, string $suffix, string $extension): string
+    {
+        $base = sprintf('%s-%s%s', $cplNum, substr($year, -2), $suffix ? $suffix : '');
+        $escapedBase = preg_quote($base, '/');
+        $existing = [];
+        if (is_dir($dir)) {
+            $files = scandir($dir);
+            foreach ($files as $f) {
+                if (preg_match('/^' . $escapedBase . '(?:-([a-z]+))?\.[^\.]+$/i', $f, $m)) {
+                    $existing[] = isset($m[1]) ? strtolower($m[1]) : '';
+                }
+            }
+        }
+
+        // If base without extra suffix is not used yet, use it
+        if (!in_array('', $existing, true)) {
+            return $base . '.' . $extension;
+        }
+
+        // Determine next available alphabetic suffix
+        $suffixes = array_filter($existing, fn($v) => $v !== '');
+        $candidate = 'a';
+        while (in_array($candidate, $suffixes, true)) {
+            $candidate = $this->incrementAlpha($candidate);
+        }
+
+        return $base . '-' . $candidate . '.' . $extension;
+    }
 
     /**
-     * Get upload error message
+     * Increment alphabetic sequence: a -> b, z -> aa, az -> ba, etc.
      */
+    private function incrementAlpha(string $s): string
+    {
+        $chars = str_split($s);
+        $i = count($chars) - 1;
+        while ($i >= 0) {
+            if ($chars[$i] !== 'z') {
+                $chars[$i] = chr(ord($chars[$i]) + 1);
+                for ($j = $i + 1; $j < count($chars); $j++) {
+                    $chars[$j] = 'a';
+                }
+                return implode('', $chars);
+            }
+            $i--;
+        }
+        // all z's -> prepend 'a'
+        return str_repeat('a', count($chars) + 1);
+    }
+
     private function getUploadErrorMessage(int $errorCode): string
     {
         return match ($errorCode) {

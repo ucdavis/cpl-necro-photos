@@ -3,3 +3,6 @@ vendor
 
 # environment variables
 .env
+
+# upload directory
+uploads/

@@ -24,7 +24,7 @@ abstract class Controller
     /**
      * Return success response
      */
-    protected function success($data, string $message = null): string
+    protected function success($data, ?string $message = null): string
     {
         $response = ['success' => true];
         
@@ -50,7 +50,7 @@ abstract class Controller
     /**
      * Get POST data
      */
-    protected function getPost(string $key = null, $default = null)
+    protected function getPost(?string $key = null, $default = null)
     {
         $data = json_decode(file_get_contents('php://input'), true) ?? $_POST;
         
