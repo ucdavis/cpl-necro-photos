@@ -5,6 +5,24 @@ namespace App\Core;
 class Router
 {
     private array $routes = [];
+    private string $basePath = '';
+
+    public function __construct(string $basePath = '')
+    {
+        // Prefer explicit constructor arg, then APP_BASE_PATH env var
+        if ($basePath !== '') {
+            $base = $basePath;
+        } else {
+            $base = $_ENV['APP_BASE_PATH'] ?? getenv('APP_BASE_PATH') ?? '';
+        }
+
+        // Normalize: ensure leading slash, no trailing slash (empty if none)
+        if ($base !== '') {
+            $base = '/' . trim($base, '/');
+        }
+
+        $this->basePath = $base;
+    }
 
     /**
      * Add a GET route
@@ -59,10 +77,13 @@ class Router
         $requestMethod = $_SERVER['REQUEST_METHOD'];
         $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
         
-        // Remove base path if needed (e.g., /api)
-        $basePath = '';
-        if (!empty($basePath)) {
-            $requestUri = preg_replace('#^' . $basePath . '#', '', $requestUri);
+        // Remove base path if configured (e.g., /necro-photos/api)
+        if (!empty($this->basePath) && strpos($requestUri, $this->basePath) === 0) {
+            $requestUri = preg_replace('#^' . preg_quote($this->basePath, '#') . '#', '', $requestUri);
+            // if request becomes empty, use root
+            if ($requestUri === '') {
+                $requestUri = '/';
+            }
         }
 
         foreach ($this->routes as $route) {
