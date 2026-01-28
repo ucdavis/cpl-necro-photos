@@ -231,6 +231,70 @@ class PhotoController extends Controller
             return $this->error('Failed to delete photo: ' . $e->getMessage(), 500);
         }
     }
+
+    /**
+     * Serve an uploaded image file (original)
+     */
+    public function serveUpload(string $year, string $filename): string
+    {
+        return $this->serveFile($year, $filename, false);
+    }
+
+    /**
+     * Serve a thumbnail image file
+     */
+    public function serveThumbnail(string $year, string $filename): string
+    {
+        return $this->serveFile($year, $filename, true);
+    }
+
+    /**
+     * Common file serving helper
+     */
+    private function serveFile(string $year, string $filename, bool $thumbnail): string
+    {
+        // Normalize year to 2-digit folder
+        $yearFolder = strlen($year) === 4 ? substr($year, -2) : $year;
+
+        $uploadDir = realpath($_ENV['UPLOAD_DIR']);
+        if (!$uploadDir) {
+            return $this->error('Upload directory not configured', 500);
+        }
+
+        $safeYear = basename($yearFolder);
+        $safeFile = basename($filename);
+
+        $sub = $thumbnail ? '/thumbnails' : '';
+        $path = $uploadDir . '/' . $safeYear . $sub . '/' . $safeFile;
+
+        // Prevent path traversal
+        $realPath = realpath($path);
+        $realUploadDir = realpath($uploadDir . '/' . $safeYear . $sub);
+
+        if (!$realPath || !$realUploadDir || strpos($realPath, $realUploadDir) !== 0 || !file_exists($realPath)) {
+            http_response_code(404);
+            return json_encode(['error' => 'File not found']);
+        }
+
+        // Determine mime type
+        $mimeType = null;
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mimeType = finfo_file($finfo, $realPath);
+            finfo_close($finfo);
+        } elseif (function_exists('mime_content_type')) {
+            $mimeType = mime_content_type($realPath);
+        } else {
+            $mimeType = 'application/octet-stream';
+        }
+
+        // Send headers and file
+        header('Content-Type: ' . $mimeType);
+        header('Content-Length: ' . filesize($realPath));
+        header('Cache-Control: public, max-age=86400');
+        readfile($realPath);
+        exit;
+    }
     /**
      * Generate a unique filename by appending alphabetic suffixes if needed.
      */

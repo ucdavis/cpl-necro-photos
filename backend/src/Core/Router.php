@@ -90,7 +90,8 @@ class Router
      */
     private function convertPathToRegex(string $path): string
     {
-        $pattern = preg_replace('/\{([a-zA-Z0-9_]+)\}/', '([a-zA-Z0-9_-]+)', $path);
+        // Match any non-slash sequence for parameters to allow dots in filenames
+        $pattern = preg_replace('/\{([a-zA-Z0-9_]+)\}/', '([^/]+)', $path);
         return '#^' . $pattern . '$#';
     }
 }

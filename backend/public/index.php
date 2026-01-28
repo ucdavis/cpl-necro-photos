@@ -14,5 +14,9 @@ $router->get('/photos/{id}', PhotoController::class, 'show');
 $router->post('/photos/upload', PhotoController::class, 'upload');
 $router->delete('/photos/{id}', PhotoController::class, 'delete');
 
+// Serve uploaded files and thumbnails via backend
+$router->get('/uploads/{year}/{filename}', PhotoController::class, 'serveUpload');
+$router->get('/uploads/{year}/thumbnails/{filename}', PhotoController::class, 'serveThumbnail');
+
 // Dispatch the request
 $router->dispatch();
