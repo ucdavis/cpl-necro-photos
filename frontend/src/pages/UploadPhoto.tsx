@@ -87,7 +87,7 @@ export default function UploadPhoto() {
 
   return (
     <div className="m-6">
-      <h3 className="text-2xl font-semibold mb-4">Upload Images</h3>
+      <h3 className="text-3xl font-bold mb-6 text-gray-100">Upload Images</h3>
 
       {uploadMessage && (
         <div
@@ -102,15 +102,17 @@ export default function UploadPhoto() {
       )}
 
       {/* Metadata Form */}
-      <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <h4 className="text-lg font-medium mb-3">Photo Information</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 max-w-md">
+        <h4 className="text-xl font-semibold mb-4 text-gray-800">
+          Photo Information
+        </h4>
+        <div className="flex flex-col gap-3">
           <div>
             <label
               htmlFor="cpl_num"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-base font-semibold text-gray-800 mb-2"
             >
-              CPL Number *
+              Accession Number:
             </label>
             <input
               type="text"
@@ -119,7 +121,7 @@ export default function UploadPhoto() {
               value={formData.cpl_num}
               onChange={handleInputChange}
               placeholder="e.g. 0047"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full max-w-[180px] md:max-w-[200px] px-3 py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={uploading}
               required
             />
@@ -128,9 +130,9 @@ export default function UploadPhoto() {
           <div>
             <label
               htmlFor="year"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-base font-semibold text-gray-800 mb-2"
             >
-              Year *
+              Accession Year (4-digit):
             </label>
             <input
               type="number"
@@ -139,13 +141,23 @@ export default function UploadPhoto() {
               value={formData.year}
               onChange={handleInputChange}
               placeholder="2024"
-              min="2000"
-              max="2030"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              min="1900"
+              max="2100"
+              className="w-full max-w-[180px] md:max-w-[200px] px-3 py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={uploading}
               required
             />
           </div>
+        </div>
+        <p className="text-base text-gray-600 mt-3">
+          Suffix will be auto-determined based on existing accession number.
+        </p>
+        <div className="text-lg text-gray-700 mt-2">
+          Images(s) will be uploaded to accession{" "}
+          <span className="font-semibold">
+            {formData.year.slice(-2)}x-
+            {formData.cpl_num.padStart(4, "0")}
+          </span>
         </div>
       </div>
 

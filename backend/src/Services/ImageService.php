@@ -5,10 +5,10 @@ namespace App\Services;
 class ImageService
 {
     /**
-     * Generate a centered thumbnail within a fixed canvas size.
+     * Generate a landscape thumbnail (350x262) with portrait rotation.
      * Returns true on success, false on failure.
      */
-    public function generateThumbnail(string $sourcePath, string $destPath, int $maxWidth = 350, int $maxHeight = 350): bool
+    public function generateThumbnail(string $sourcePath, string $destPath, int $maxWidth = 350, int $maxHeight = 263): bool
     {
         // Ensure source exists
         if (!is_file($sourcePath)) {
@@ -31,24 +31,30 @@ class ImageService
         $width = $imageInfo[0];
         $height = $imageInfo[1];
         $mimeType = $imageInfo['mime'];
+        
+        // Determine if image is portrait and needs rotation
+        $isPortrait = $height > $width;
+        
+        // If portrait, we'll work with rotated dimensions for calculations
+        if ($isPortrait) {
+            // Swap width and height for landscape calculation
+            $calcWidth = $height;
+            $calcHeight = $width;
+        } else {
+            $calcWidth = $width;
+            $calcHeight = $height;
+        }
 
-        // Calculate new dimensions maintaining aspect ratio
-        $aspectRatio = $width / $height;
-
-        if ($width > $height) {
+        // Calculate new dimensions for landscape format (350x262)
+        $aspectRatio = $calcWidth / $calcHeight;
+        $targetAspect = $maxWidth / $maxHeight; // 350/262 ≈ 1.336
+        
+        if ($aspectRatio > $targetAspect) {
+            // Image is wider than target - fit by width
             $newWidth = $maxWidth;
             $newHeight = (int) round($maxWidth / $aspectRatio);
         } else {
-            $newHeight = $maxHeight;
-            $newWidth = (int) round($maxHeight * $aspectRatio);
-        }
-
-        // Ensure we don't exceed max dimensions (safety)
-        if ($newWidth > $maxWidth) {
-            $newWidth = $maxWidth;
-            $newHeight = (int) round($maxWidth / $aspectRatio);
-        }
-        if ($newHeight > $maxHeight) {
+            // Image is taller than target - fit by height  
             $newHeight = $maxHeight;
             $newWidth = (int) round($maxHeight * $aspectRatio);
         }
@@ -73,8 +79,25 @@ class ImageService
         if (!$sourceImage) {
             return false;
         }
+        
+        // Rotate portrait images to landscape
+        if ($isPortrait) {
+            $rotatedImage = imagerotate($sourceImage, 90, 0);
+            if ($rotatedImage) {
+                // Clean up original
+                if (is_resource($sourceImage)) {
+                    imagedestroy($sourceImage);
+                } else {
+                    $sourceImage = null;
+                }
+                $sourceImage = $rotatedImage;
+                // Update dimensions after rotation
+                $width = $height; // Original height becomes new width
+                $height = imagesx($sourceImage); // Get actual height of rotated image
+            }
+        }
 
-        // Create destination canvas
+        // Create destination canvas (always landscape 350x262)
         $destImage = imagecreatetruecolor($maxWidth, $maxHeight);
 
         // Handle transparency for PNG/GIF
@@ -120,10 +143,10 @@ class ImageService
         switch ($mimeType) {
             case 'image/jpeg':
             case 'image/jpg':
-                $result = imagejpeg($destImage, $destPath, 85);
+                $result = imagejpeg($destImage, $destPath, 30);
                 break;
             case 'image/png':
-                $result = imagepng($destImage, $destPath, 8);
+                $result = imagepng($destImage, $destPath, 9);
                 break;
             case 'image/gif':
                 $result = imagegif($destImage, $destPath);

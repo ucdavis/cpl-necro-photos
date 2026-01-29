@@ -73,7 +73,7 @@ export function Header() {
         <NavLink
           to="/"
           className={({ isActive }) =>
-            `text-grey-400 no-underline p-1 pb-0.5 border-solid border-b-2 ${
+            `text-grey-400 hover:no-underline no-underline p-1 pb-0.5 border-solid border-b-2 ${
               isActive ? "border-green-500" : "border-transparent"
             }`
           }
@@ -83,7 +83,7 @@ export function Header() {
         <NavLink
           to="/upload"
           className={({ isActive }) =>
-            `text-grey-400 no-underline p-1 pb-0.5 border-solid border-b-2 ${
+            `text-grey-400 hover:no-underline no-underline p-1 pb-0.5 border-solid border-b-2 ${
               isActive ? "border-green-500" : "border-transparent"
             }`
           }

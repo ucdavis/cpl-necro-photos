@@ -4,17 +4,20 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Repositories\PhotoRepository;
+use App\Repositories\AccessionRepository;
 use App\Services\ImageService;
 
 class PhotoController extends Controller
 {
     private PhotoRepository $photoRepository;
     private ImageService $imageService;
+    private AccessionRepository $accessionRepository;
 
     public function __construct()
     {
         $this->photoRepository = new PhotoRepository();
         $this->imageService = new ImageService();
+        $this->accessionRepository = new AccessionRepository();
     }
 
     /**
@@ -127,20 +130,35 @@ class PhotoController extends Controller
             }
             
             // Get additional data from POST
-            $cplNum = $this->getPost('cpl_num');
-            $suffix = $this->getPost('suffix');
-            $year = $this->getPost('year');
-            $login = $this->getPost('login', 'system');
-            
+            $cplNum = trim((string) $this->getPost('cpl_num'));
+            $year = trim((string) $this->getPost('year'));
+            $login = $_SERVER['REMOTE_USER'] ?? 'system';
+
             // Validate required fields
             $error = $this->validateRequired(
                 ['cpl_num' => $cplNum, 'year' => $year],
                 ['cpl_num', 'year']
             );
-            
             if ($error) {
                 return $this->error($error, 400);
             }
+
+            // Validate CPL number format (digits only, allow leading zeros)
+            if (!ctype_digit($cplNum)) {
+                return $this->error("Invalid CPL number '{$cplNum}'", 400);
+            }
+
+            // Validate year format and reasonable range
+            if (!ctype_digit($year) || (int) $year < 1900 || (int) $year > 2100) {
+                return $this->error("Invalid year '{$year}'. Expected a year between 1900 and 2100.", 400);
+            }
+
+            // Validate CPL accession exists and obtain suffix
+            $accession = $this->accessionRepository->getAccessionByNumYear((int)$cplNum, (int)$year);
+            if (!$accession) {
+                return $this->error("Accession not found for CPL number '{$cplNum}' and year '{$year}'", 400);
+            }
+            $suffix = $accession['suffix'] ?? '';
             
             // Determine file extension; filename will be generated once the upload directory exists
             $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
@@ -170,8 +188,8 @@ class PhotoController extends Controller
                 return $this->error('Failed to save uploaded file', 500);
             }
             
-            // Generate thumbnail (350x350)
-            $thumbnailGenerated = $this->imageService->generateThumbnail($uploadPath, $yearDir . '/thumbnails/' . $filename, 350, 350);
+            // Generate thumbnail (350x262)
+            $thumbnailGenerated = $this->imageService->generateThumbnail($uploadPath, $yearDir . '/thumbnails/' . $filename, 350, 263);
             if (!$thumbnailGenerated) {
                 // Log warning but don't fail the upload
                 error_log("Warning: Failed to generate thumbnail for {$filename}");
@@ -288,10 +306,44 @@ class PhotoController extends Controller
             $mimeType = 'application/octet-stream';
         }
 
+        // Determine caching policy
+        $thumbMaxAge = isset($_ENV['THUMB_MAX_AGE']) ? (int) $_ENV['THUMB_MAX_AGE'] : 2592000;
+        $origMaxAge = isset($_ENV['ORIGINAL_MAX_AGE']) ? (int) $_ENV['ORIGINAL_MAX_AGE'] : 86400;
+        $thumbImmutable = isset($_ENV['THUMB_IMMUTABLE']) ? filter_var($_ENV['THUMB_IMMUTABLE'], FILTER_VALIDATE_BOOLEAN) : true;
+
+        $maxAge = $thumbnail ? $thumbMaxAge : $origMaxAge;
+        $immutable = $thumbnail ? $thumbImmutable : false;
+
+        // ETag and Last-Modified
+        $mtime = filemtime($realPath);
+        $size = filesize($realPath);
+        $etag = '"' . sha1($mtime . '-' . $size) . '"';
+        $lastModified = gmdate('D, d M Y H:i:s', $mtime) . ' GMT';
+
+        // Conditional requests
+        $ifNoneMatch = $_SERVER['HTTP_IF_NONE_MATCH'] ?? null;
+        $ifModifiedSince = $_SERVER['HTTP_IF_MODIFIED_SINCE'] ?? null;
+
+        if ($ifNoneMatch !== null && trim($ifNoneMatch) === $etag) {
+            http_response_code(304);
+            header('Cache-Control: public, max-age=' . $maxAge . ($immutable ? ', immutable' : ''));
+            exit;
+        }
+
+        if ($ifModifiedSince !== null && strtotime($ifModifiedSince) >= $mtime) {
+            http_response_code(304);
+            header('Cache-Control: public, max-age=' . $maxAge . ($immutable ? ', immutable' : ''));
+            exit;
+        }
+
         // Send headers and file
         header('Content-Type: ' . $mimeType);
-        header('Content-Length: ' . filesize($realPath));
-        header('Cache-Control: public, max-age=86400');
+        header('Content-Length: ' . $size);
+        header('Cache-Control: public, max-age=' . $maxAge . ($immutable ? ', immutable' : ''));
+        header('ETag: ' . $etag);
+        header('Last-Modified: ' . $lastModified);
+
+        // Stream file
         readfile($realPath);
         exit;
     }
@@ -300,7 +352,9 @@ class PhotoController extends Controller
      */
     private function generateUniqueFilename(string $dir, string $cplNum, string $year, string $suffix, string $extension): string
     {
-        $base = sprintf('%s-%s%s', $cplNum, substr($year, -2), $suffix ? $suffix : '');
+        // Pad CPL number to 4 digits with leading zeros
+        $paddedCplNum = str_pad($cplNum, 4, '0', STR_PAD_LEFT);
+        $base = sprintf('%s-%s%s', $paddedCplNum, substr($year, -2), $suffix ? $suffix : '');
         $escapedBase = preg_quote($base, '/');
         $existing = [];
         if (is_dir($dir)) {
@@ -312,15 +366,9 @@ class PhotoController extends Controller
             }
         }
 
-        // If base without extra suffix is not used yet, use it
-        if (!in_array('', $existing, true)) {
-            return $base . '.' . $extension;
-        }
-
-        // Determine next available alphabetic suffix
-        $suffixes = array_filter($existing, fn($v) => $v !== '');
+        // Start with -a instead of base without suffix
         $candidate = 'a';
-        while (in_array($candidate, $suffixes, true)) {
+        while (in_array($candidate, $existing, true)) {
             $candidate = $this->incrementAlpha($candidate);
         }
 
