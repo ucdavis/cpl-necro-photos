@@ -99,8 +99,11 @@ class PhotoController extends Controller
                 return $this->error('File size exceeds maximum allowed size', 400);
             }
             
-            // Validate file type (images only)
-            $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+            // Validate file type (images and videos)
+            $allowedTypes = [
+                'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
+                'video/quicktime', 'video/mp4', 'video/avi', 'video/x-msvideo'
+            ];
             $mimeType = null;
             
             // Try Fileinfo extension first (most reliable)
@@ -120,13 +123,16 @@ class PhotoController extends Controller
                     'jpg' => 'image/jpeg',
                     'jpeg' => 'image/jpeg',
                     'png' => 'image/png',
-                    'gif' => 'image/gif'
+                    'gif' => 'image/gif',
+                    'mov' => 'video/quicktime',
+                    'mp4' => 'video/mp4',
+                    'avi' => 'video/avi'
                 ];
                 $mimeType = $extensionMap[$extension] ?? null;
             }
             
             if (!$mimeType || !in_array($mimeType, $allowedTypes)) {
-                return $this->error('Invalid file type. Only images (JPG, PNG, GIF) are allowed', 400);
+                return $this->error('Invalid file type. Only images (JPG, PNG, GIF) and videos (MOV, MP4, AVI) are allowed', 400);
             }
             
             // Get additional data from POST
@@ -188,11 +194,13 @@ class PhotoController extends Controller
                 return $this->error('Failed to save uploaded file', 500);
             }
             
-            // Generate thumbnail (350x262)
-            $thumbnailGenerated = $this->imageService->generateThumbnail($uploadPath, $yearDir . '/thumbnails/' . $filename, 350, 263);
-            if (!$thumbnailGenerated) {
-                // Log warning but don't fail the upload
-                error_log("Warning: Failed to generate thumbnail for {$filename}");
+            // Generate thumbnail for images only (videos will use browser video element)
+            if (strpos($mimeType, 'image/') === 0) {
+                $thumbnailGenerated = $this->imageService->generateThumbnail($uploadPath, $yearDir . '/thumbnails/' . $filename, 350, 263);
+                if (!$thumbnailGenerated) {
+                    // Log warning but don't fail the upload
+                    error_log("Warning: Failed to generate thumbnail for {$filename}");
+                }
             }
             
             // Save to database
@@ -284,7 +292,7 @@ class PhotoController extends Controller
 
         $sub = $thumbnail ? '/thumbnails' : '';
         $path = $uploadDir . '/' . $safeYear . $sub . '/' . $safeFile;
-
+        
         // Prevent path traversal
         $realPath = realpath($path);
         $realUploadDir = realpath($uploadDir . '/' . $safeYear . $sub);
@@ -302,9 +310,26 @@ class PhotoController extends Controller
             finfo_close($finfo);
         } elseif (function_exists('mime_content_type')) {
             $mimeType = mime_content_type($realPath);
-        } else {
-            $mimeType = 'application/octet-stream';
         }
+        
+        // Fallback for common video extensions if MIME detection fails
+        if (!$mimeType || $mimeType === 'application/octet-stream') {
+            $extension = strtolower(pathinfo($realPath, PATHINFO_EXTENSION));
+            $mimeMap = [
+                'mov' => 'video/quicktime',
+                'mp4' => 'video/mp4',
+                'avi' => 'video/x-msvideo',
+                'jpg' => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'png' => 'image/png',
+                'gif' => 'image/gif'
+            ];
+            $mimeType = $mimeMap[$extension] ?? 'application/octet-stream';
+        }
+
+        // Override extension-based MIME for .mov files
+        $extension = strtolower(pathinfo($realPath, PATHINFO_EXTENSION)); 
+        if ($extension === 'mov') { $mimeType = 'video/quicktime'; }
 
         // Determine caching policy
         $thumbMaxAge = isset($_ENV['THUMB_MAX_AGE']) ? (int) $_ENV['THUMB_MAX_AGE'] : 2592000;
@@ -338,12 +363,65 @@ class PhotoController extends Controller
 
         // Send headers and file
         header('Content-Type: ' . $mimeType);
-        header('Content-Length: ' . $size);
         header('Cache-Control: public, max-age=' . $maxAge . ($immutable ? ', immutable' : ''));
         header('ETag: ' . $etag);
         header('Last-Modified: ' . $lastModified);
+        header('Accept-Ranges: bytes');
+        header('Content-Disposition: inline; filename="' . $safeFile . '"');
 
-        // Stream file
+        // Handle range requests (essential for video streaming)
+        $rangeHeader = $_SERVER['HTTP_RANGE'] ?? null;
+        
+        if ($rangeHeader && preg_match('/bytes=(\d*)-(\d*)/', $rangeHeader, $matches)) {
+            $start = $matches[1] !== '' ? (int)$matches[1] : 0;
+            $end = $matches[2] !== '' ? (int)$matches[2] : $size - 1;
+            
+            // Ensure valid range
+            if ($start >= $size || $end >= $size || $start > $end) {
+                http_response_code(416); // Range Not Satisfiable
+                header('Content-Range: bytes */' . $size);
+                exit;
+            }
+            
+            $length = $end - $start + 1;
+            
+            // Send partial content response
+            while (ob_get_level()) { ob_end_clean(); }
+
+            http_response_code(206);
+            header('Content-Length: ' . $length);
+            header('Content-Range: bytes ' . $start . '-' . $end . '/' . $size);
+            
+            // Stream the requested range with better buffering
+            $fp = fopen($realPath, 'rb');
+            if ($fp) {
+                fseek($fp, $start);
+                $bytesRemaining = $length;
+                
+                while ($bytesRemaining > 0 && !feof($fp)) {
+                    // Use larger chunks for better performance
+                    $chunkSize = min(65536, $bytesRemaining); // 64KB chunks
+                    $data = fread($fp, $chunkSize);
+                    
+                    if ($data === false) break;
+                    
+                    echo $data;
+                    $bytesRemaining -= strlen($data);
+                    
+                    // Check if client disconnected
+                    if (connection_aborted()) break;
+                    
+                    // Flush output to client
+                    if (ob_get_level()) ob_flush();
+                    flush();
+                }
+                fclose($fp);
+            }
+            exit;
+        }
+        
+        // Standard full file response
+        header('Content-Length: ' . $size);
         readfile($realPath);
         exit;
     }

@@ -167,7 +167,7 @@ export default function UploadPhoto() {
         onChange={onChange}
         maxNumber={maxNumber}
         dataURLKey="img_url"
-        acceptType={["jpg", "jpeg", "png"]}
+        acceptType={["jpg", "jpeg", "png", "mov", "mp4", "avi"]}
       >
         {({
           imageList,
