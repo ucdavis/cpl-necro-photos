@@ -2,14 +2,18 @@ import { yearOptionsDescending } from "../utils/selectYears";
 
 export default function YearSelect({
   targetYear,
+  className,
   value,
+  showAllOption = true,
   onChange,
 }: {
-  targetYear: number;
+  targetYear?: number | null;
+  className?: string;
   value?: number;
+  showAllOption?: boolean;
   onChange: (v: number | null) => void;
 }) {
-  const options = yearOptionsDescending(targetYear);
+  const options = yearOptionsDescending(targetYear ?? new Date().getFullYear());
 
   return (
     <select
@@ -19,9 +23,9 @@ export default function YearSelect({
         onChange(selectedValue === "" ? null : Number(selectedValue));
       }}
       aria-label="Year"
-      className="year-select"
+      className={`${className ?? "year-select"}`}
     >
-      <option value="">All years</option>
+      {showAllOption && <option value="">All years</option>}
       {options.map((option) => (
         <option key={option.value} value={option.value}>
           {option.label}

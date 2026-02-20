@@ -57,3 +57,13 @@ export const isWithinDays = (dateString: string, days: number): boolean => {
 
   return diffInDays <= days;
 };
+
+/**
+ * Normalize year input (e.g., "23" becomes 2023)
+ */
+export const normalizeYear = (value: number | string) => {
+  const parsed = Number(value);
+  if (Number.isNaN(parsed)) return new Date().getFullYear();
+  if (parsed < 100) return 2000 + parsed;
+  return parsed;
+};

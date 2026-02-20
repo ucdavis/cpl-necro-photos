@@ -78,7 +78,7 @@ export function Header() {
             }`
           }
         >
-          Home
+          Gallery
         </NavLink>
         <NavLink
           to="/upload"

@@ -19,8 +19,6 @@ export function GalleryHeader({
   const [selectedPerPage, setSelectedPerPage] = useState(initialPerPage);
   const [jumpPage, setJumpPage] = useState<number>(currentPage);
 
-  console.log("GalleryHeader render");
-
   useEffect(() => {
     setJumpPage(currentPage);
   }, [currentPage]);

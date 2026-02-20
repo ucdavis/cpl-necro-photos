@@ -292,7 +292,7 @@ button:focus {
   font-weight: 600;
 }
 
-.original-image-link {
+.green-btn {
   display: inline-block;
   margin-top: 16px;
   padding: 8px 16px;
@@ -304,13 +304,13 @@ button:focus {
   transition: background-color 0.2s ease;
 }
 
-.original-image-link:hover {
+.green-btn:hover {
   background-color: #266041; /* UCD Redwood */
   color: white;
   text-decoration: none;
 }
 
-.original-image-link:focus {
+.green-btn:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(51, 87, 43, 0.3);
 }

@@ -6,6 +6,7 @@ use App\Core\Controller;
 use App\Repositories\PhotoRepository;
 use App\Repositories\AccessionRepository;
 use App\Services\ImageService;
+use App\Services\PhotoFilenameService;
 
 class PhotoController extends Controller
 {
@@ -185,7 +186,7 @@ class PhotoController extends Controller
             }
             
             // Generate unique filename (adds -a, -b, ... if needed)
-            $filename = $this->generateUniqueFilename($yearDir, $cplNum, $year, $suffix ?? '', $extension);
+            $filename = PhotoFilenameService::generateFilename($yearDir, $cplNum, $year, $suffix ?? '', $extension);
             
             $uploadPath = $yearDir . '/' . $filename;
             
@@ -425,55 +426,6 @@ class PhotoController extends Controller
         readfile($realPath);
         exit;
     }
-    /**
-     * Generate a unique filename by appending alphabetic suffixes if needed.
-     */
-    private function generateUniqueFilename(string $dir, string $cplNum, string $year, string $suffix, string $extension): string
-    {
-        // Pad CPL number to 4 digits with leading zeros
-        $paddedCplNum = str_pad($cplNum, 4, '0', STR_PAD_LEFT);
-        $base = sprintf('%s-%s%s', $paddedCplNum, substr($year, -2), $suffix ? $suffix : '');
-        $escapedBase = preg_quote($base, '/');
-        $existing = [];
-        if (is_dir($dir)) {
-            $files = scandir($dir);
-            foreach ($files as $f) {
-                if (preg_match('/^' . $escapedBase . '(?:-([a-z]+))?\.[^\.]+$/i', $f, $m)) {
-                    $existing[] = isset($m[1]) ? strtolower($m[1]) : '';
-                }
-            }
-        }
-
-        // Start with -a instead of base without suffix
-        $candidate = 'a';
-        while (in_array($candidate, $existing, true)) {
-            $candidate = $this->incrementAlpha($candidate);
-        }
-
-        return $base . '-' . $candidate . '.' . $extension;
-    }
-
-    /**
-     * Increment alphabetic sequence: a -> b, z -> aa, az -> ba, etc.
-     */
-    private function incrementAlpha(string $s): string
-    {
-        $chars = str_split($s);
-        $i = count($chars) - 1;
-        while ($i >= 0) {
-            if ($chars[$i] !== 'z') {
-                $chars[$i] = chr(ord($chars[$i]) + 1);
-                for ($j = $i + 1; $j < count($chars); $j++) {
-                    $chars[$j] = 'a';
-                }
-                return implode('', $chars);
-            }
-            $i--;
-        }
-        // all z's -> prepend 'a'
-        return str_repeat('a', count($chars) + 1);
-    }
-
     private function getUploadErrorMessage(int $errorCode): string
     {
         return match ($errorCode) {
@@ -485,5 +437,61 @@ class PhotoController extends Controller
             UPLOAD_ERR_EXTENSION => 'Upload stopped by extension',
             default => 'Unknown upload error'
         };
+    }
+
+    public function reassign(string $id): string
+    {
+        try {
+            $photo = $this->photoRepository->getById((int) $id);
+            
+            if (!$photo) {
+                return $this->error('Photo not found', 404);
+            }
+
+            $cplNum = trim((string) $this->getPost('cpl_num'));
+            $year = trim((string) $this->getPost('year'));
+
+            // Validate required fields
+            $error = $this->validateRequired(
+                ['cpl_num' => $cplNum, 'year' => $year],
+                ['cpl_num', 'year']
+            );
+            if ($error) {
+                return $this->error($error, 400);
+            }
+
+            // Validate CPL number format (digits only, allow leading zeros)
+            if (!ctype_digit($cplNum)) {
+                return $this->error("Invalid CPL number '{$cplNum}'", 400);
+            }
+
+            // Validate year format and reasonable range
+            if (!ctype_digit($year) || (int) $year < 1900 || (int) $year > 2100) {
+                return $this->error("Invalid year '{$year}'. Expected a year between 1900 and 2100.", 400);
+            }
+
+            // Validate CPL accession exists and obtain suffix
+            $accession = $this->accessionRepository->getAccessionByNumYear((int)$cplNum, (int)$year);
+            if (!$accession) {
+                return $this->error("Accession not found for CPL number '{$cplNum}' and year '{$year}'", 400);
+            }
+            $suffix = $accession['suffix'] ?? '';
+
+            // Update photo record
+            $updatedPhoto = $this->photoRepository->update((int)$id, [
+                'cpl_num' => $cplNum,
+                'suffix' => $suffix,
+                'year' => substr($year, -2)
+            ]);
+
+            if (!$updatedPhoto) {
+                return $this->error('Failed to update photo record', 500);
+            }
+
+            return $this->success($updatedPhoto, 'Photo reassigned successfully');
+            
+        } catch (\Exception $e) {
+            return $this->error('Failed to reassign photo: ' . $e->getMessage(), 500);
+        }
     }
 }

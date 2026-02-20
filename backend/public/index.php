@@ -12,7 +12,8 @@ $router = new Router();
 $router->get('/photos', PhotoController::class, 'index');
 $router->get('/photos/{id}', PhotoController::class, 'show');
 $router->post('/photos/upload', PhotoController::class, 'upload');
-$router->delete('/photos/{id}', PhotoController::class, 'delete');
+// $router->delete('/photos/{id}', PhotoController::class, 'delete');
+$router->patch('/photos/{id}/reassign', PhotoController::class, 'reassign');
 
 // Serve uploaded files and thumbnails via backend
 $router->get('/uploads/{year}/{filename}', PhotoController::class, 'serveUpload');

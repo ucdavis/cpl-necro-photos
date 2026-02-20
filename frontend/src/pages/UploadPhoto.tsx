@@ -12,8 +12,7 @@ export default function UploadPhoto() {
   });
   const maxNumber = 40;
 
-  const onChange = (imageList: ImageListType, addUpdateIndex?: number[]) => {
-    console.log(imageList, addUpdateIndex);
+  const handleImageChange = (imageList: ImageListType) => {
     setImages(imageList);
     // Clear any previous upload messages when images change
     setUploadMessage("");
@@ -164,7 +163,7 @@ export default function UploadPhoto() {
       <ImageUploading
         multiple
         value={images}
-        onChange={onChange}
+        onChange={handleImageChange}
         maxNumber={maxNumber}
         dataURLKey="img_url"
         acceptType={["jpg", "jpeg", "png", "mov", "mp4", "avi"]}

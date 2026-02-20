@@ -57,6 +57,15 @@ class Router
     }
 
     /**
+     * Add a PATCH route
+     */
+    public function patch(string $path, string $controller, string $method): void
+    {
+        $this->addRoute('PATCH', $path, $controller, $method);
+    }
+
+
+    /**
      * Add route to the routes array
      */
     private function addRoute(string $httpMethod, string $path, string $controller, string $method): void

@@ -1,8 +1,10 @@
 import { useParams, useNavigate } from "react-router-dom";
+import axios from "axios";
 import { useState, useEffect } from "react";
-import { getPhotoById } from "../services/photoService";
+import { getPhotoById, reassignPhotoAccession } from "../services/photoService";
 import type { Photo } from "../types";
 import { formatDateTime } from "../utils/date";
+import ReassignModal from "../components/ReassignModal";
 
 // Helper function to detect video files
 function isVideoFile(filename: string): boolean {
@@ -11,11 +13,16 @@ function isVideoFile(filename: string): boolean {
 }
 
 export default function PhotoIndividual() {
+  // Get photo ID from URL params
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // State
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [reassignError, setReassignError] = useState<string | null>(null);
+  const [reassignLoading, setReassignLoading] = useState(false);
 
   useEffect(() => {
     async function fetchPhoto() {
@@ -44,6 +51,60 @@ export default function PhotoIndividual() {
   const isVideo = isVideoFile(photo.filename);
   const uploadsBase = import.meta.env.VITE_PHOTO_URL?.replace(/\/$/, "") ?? "";
   const mediaUrl = `${uploadsBase}/${photo.year}/${photo.filename}`;
+
+  const handleOpenReassignModal = () => {
+    setReassignError(null);
+    setShowReassignModal(true);
+  };
+
+  const handleCloseReassignModal = () => {
+    if (reassignLoading) return;
+    setShowReassignModal(false);
+  };
+
+  const handleConfirmReassign = async (data: {
+    accession: string;
+    year: string;
+  }) => {
+    const { accession, year } = data;
+
+    if (!accession) {
+      setReassignError("Please enter a new accession number.");
+      return;
+    }
+
+    if (!year) {
+      setReassignError("Please select a new accession year.");
+      return;
+    }
+
+    try {
+      setReassignLoading(true);
+      setReassignError(null);
+
+      // Call service method to reassign photo accession
+      await reassignPhotoAccession({
+        photoId: photo.id,
+        newAccession: accession.trim(),
+        newYear: year.trim(),
+      });
+
+      setShowReassignModal(false);
+    } catch (err) {
+      let message = "Failed to reassign photo";
+
+      if (axios.isAxiosError(err)) {
+        message = err.response?.data?.error ?? err.message ?? message;
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
+
+      setReassignError(message);
+    } finally {
+      setReassignLoading(false);
+    }
+  };
+
   return (
     <div className="photo-individual-container">
       <div className="photo-individual-grid">
@@ -77,6 +138,15 @@ export default function PhotoIndividual() {
           </h3>
           {/* Media details */}
           <div className="photo-details">
+            <p>
+              <button
+                type="button"
+                onClick={handleOpenReassignModal}
+                className="green-btn"
+              >
+                Reassign image to different accession
+              </button>
+            </p>
             <p className="photo-uploader">
               <strong>Uploaded by:</strong> {photo.login}
             </p>
@@ -94,7 +164,7 @@ export default function PhotoIndividual() {
                 href={mediaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="original-image-link"
+                className="green-btn"
               >
                 Open original {isVideo ? "video" : "image"}
               </a>
@@ -102,6 +172,16 @@ export default function PhotoIndividual() {
           </div>
         </div>
       </div>
+
+      {showReassignModal && (
+        <ReassignModal
+          photo={photo}
+          onConfirm={handleConfirmReassign}
+          onCancel={handleCloseReassignModal}
+          error={reassignError}
+          loading={reassignLoading}
+        />
+      )}
     </div>
   );
 }
