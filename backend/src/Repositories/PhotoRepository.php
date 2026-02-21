@@ -207,22 +207,66 @@ class PhotoRepository extends Repository
     public function search(string $query, int $page = 1, int $perPage = 20): array
     {
         $offset = ($page - 1) * $perPage;
-        $searchTerm = "%$query%";
-        
-        // Count total results
-        $countSql = "SELECT COUNT(*) as total FROM photos 
-                     WHERE cpl_num LIKE ? OR filename LIKE ? OR login LIKE ?";
-        $countResult = $this->queryOne($countSql, [$searchTerm, $searchTerm, $searchTerm]);
-        $total = (int) $countResult['total'];
-        
-        // Get paginated search results
-        $sql = "SELECT id, cpl_num, suffix, year, filename, size, date_uploaded, login
-                FROM photos
-                WHERE cpl_num LIKE ? OR filename LIKE ? OR login LIKE ?
-                ORDER BY id DESC
-                LIMIT ? OFFSET ?";
-        
-        $photos = $this->query($sql, [$searchTerm, $searchTerm, $searchTerm, $perPage, $offset]);
+        $trimmedQuery = trim($query);
+
+        // Special-case pattern like "26u-0146" or "2026u-0146":
+        //  - first part = year (2 or 4 digits)
+        //  - letter     = accession suffix
+        //  - last part  = CPL number (typically 3–4 digits, may include leading zeros)
+        if (preg_match('/^(\d{2}|\d{4})([A-Za-z])-(\d{3,4})$/', $trimmedQuery, $m)) {
+            $yearTwoDigit = (int) substr($m[1], -2); // e.g. 26 from 26 or 2026
+            $suffix = strtoupper($m[2]);
+            $cplNumRaw = $m[3];                    // e.g. 0146
+
+            // Support both zero-padded and non-padded forms in the DB
+            $cplVariants = [];
+            $cplVariants[] = $cplNumRaw;
+            $noLeadingZeros = ltrim($cplNumRaw, '0');
+            if ($noLeadingZeros === '') {
+                $noLeadingZeros = '0';
+            }
+            if ($noLeadingZeros !== $cplNumRaw) {
+                $cplVariants[] = $noLeadingZeros;
+            }
+            $cplVariants = array_values(array_unique($cplVariants));
+
+            $placeholders = implode(',', array_fill(0, count($cplVariants), '?'));
+
+            // Count total results for this specific accession
+            $countSql = "SELECT COUNT(*) as total FROM photos
+                         WHERE year = ? AND suffix = ? AND cpl_num IN ($placeholders)";
+            $countParams = array_merge([$yearTwoDigit, $suffix], $cplVariants);
+            $countResult = $this->queryOne($countSql, $countParams);
+            $total = (int) $countResult['total'];
+
+            // Get paginated search results
+            $sql = "SELECT id, cpl_num, suffix, year, filename, size, date_uploaded, login
+                    FROM photos
+                    WHERE year = ? AND suffix = ? AND cpl_num IN ($placeholders)
+                    ORDER BY id DESC
+                    LIMIT ? OFFSET ?";
+
+            $params = array_merge([$yearTwoDigit, $suffix], $cplVariants, [$perPage, $offset]);
+            $photos = $this->query($sql, $params);
+        } else {
+            // Fallback: broad text search across CPL number, filename, and login
+            $searchTerm = "%$trimmedQuery%";
+
+            // Count total results
+            $countSql = "SELECT COUNT(*) as total FROM photos 
+                         WHERE cpl_num LIKE ? OR filename LIKE ? OR login LIKE ?";
+            $countResult = $this->queryOne($countSql, [$searchTerm, $searchTerm, $searchTerm]);
+            $total = (int) $countResult['total'];
+            
+            // Get paginated search results
+            $sql = "SELECT id, cpl_num, suffix, year, filename, size, date_uploaded, login
+                    FROM photos
+                    WHERE cpl_num LIKE ? OR filename LIKE ? OR login LIKE ?
+                    ORDER BY id DESC
+                    LIMIT ? OFFSET ?";
+            
+            $photos = $this->query($sql, [$searchTerm, $searchTerm, $searchTerm, $perPage, $offset]);
+        }
         
         return [
             'data' => $photos,
